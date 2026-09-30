@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:engineering_drawing_city/services/firebase_service.dart';
 import 'package:engineering_drawing_city/theme/app_theme.dart';
@@ -15,6 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
@@ -22,6 +24,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _acceptedTerms = false;
   String? _errorMessage;
 
   // Student-specific fields
@@ -48,6 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -55,6 +59,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_acceptedTerms) {
+      setState(() {
+        _errorMessage = 'You must accept the Terms & Conditions to create an account.';
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -69,6 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         year: _selectedYear,
         program: _selectedProgram,
         institution: _institution,
+        phoneNumber: _phoneController.text.trim(),
       );
 
       if (!mounted) return;
@@ -110,6 +122,112 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .toList(),
       onChanged: onChanged,
       validator: validator,
+    );
+  }
+
+  void _showTermsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.gavel, color: AppTheme.primaryBlue),
+            SizedBox(width: 10),
+            Text('Terms & Conditions'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                '1. Account & Access',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Your account is personal and non-transferable. Sharing credentials is strictly prohibited and will result in immediate suspension.',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '2. Device Lock Policy',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Each account is bound to a single device. Logging in from a different device will trigger automatic account suspension. Contact customer care at +260 772 184445 for reactivation.',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '3. Subscription & Payments',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Subscription fees are non-refundable. Access to AI features and premium content requires an active subscription. No payments = No AI access.',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '4. Content Use',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'All video lessons, books, and past papers are for personal educational use only. Redistribution, copying, or commercial use is strictly prohibited.',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '5. Intellectual Property',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'All content is the property of Engineering Drawing City. Unauthorized reproduction may result in legal action.',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '6. Privacy',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Your phone number and email are used only for payment verification and account recovery. We do not share your data with third parties.',
+                style: TextStyle(fontSize: 13),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '7. Amendments',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Engineering Drawing City reserves the right to modify these terms at any time. Continued use of the app constitutes acceptance of any revised terms.',
+                style: TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
+            onPressed: () {
+              setState(() => _acceptedTerms = true);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Accept', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -225,6 +343,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 14),
 
+                      // Phone Number
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: const InputDecoration(
+                          labelText: 'Mobile Number (for payments)',
+                          hintText: 'e.g. 0972123456',
+                          prefixIcon: Icon(Icons.phone_android,
+                              color: AppTheme.primaryBlue),
+                          helperText: 'Used to receive Airtel Money USSD payment prompts',
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your mobile number';
+                          }
+                          if (value.trim().length < 9) {
+                            return 'Enter a valid mobile number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
                       // Year Dropdown
                       _buildDropdownField<String>(
                         label: 'Year of Study',
@@ -327,6 +469,51 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           }
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Terms & Conditions checkbox
+                      GestureDetector(
+                        onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Checkbox(
+                              value: _acceptedTerms,
+                              activeColor: AppTheme.primaryBlue,
+                              onChanged: (val) =>
+                                  setState(() => _acceptedTerms = val ?? false),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 10.0),
+                                child: GestureDetector(
+                                  onTap: _showTermsDialog,
+                                  child: RichText(
+                                    text: const TextSpan(
+                                      style: TextStyle(
+                                          fontSize: 13, color: Colors.black87),
+                                      children: [
+                                        TextSpan(text: 'I agree to the '),
+                                        TextSpan(
+                                          text: 'Terms & Conditions',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryBlue,
+                                            fontWeight: FontWeight.bold,
+                                            decoration: TextDecoration.underline,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                            text:
+                                                ' including the device lock & payment policies.'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       if (_errorMessage != null) ...[

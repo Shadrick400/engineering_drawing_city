@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:engineering_drawing_city/models/app_settings_model.dart';
+import 'package:engineering_drawing_city/models/book_model.dart';
 import 'package:engineering_drawing_city/models/course_model.dart';
+import 'package:engineering_drawing_city/models/past_paper_model.dart';
 import 'package:engineering_drawing_city/models/payment_model.dart';
 import 'package:engineering_drawing_city/models/video_model.dart';
 import 'package:engineering_drawing_city/services/firebase_service.dart';
@@ -204,7 +206,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
   }
 
   @override
@@ -243,9 +245,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           isScrollable: true,
           tabs: const [
             Tab(icon: Icon(Icons.dashboard_outlined), text: 'Overview'),
-            Tab(icon: Icon(Icons.payments_outlined), text: 'Pending Payments'),
-            Tab(icon: Icon(Icons.auto_stories_outlined), text: 'Manage Courses'),
-            Tab(icon: Icon(Icons.settings_outlined), text: 'App Settings'),
+            Tab(icon: Icon(Icons.payments_outlined), text: 'Payments'),
+            Tab(icon: Icon(Icons.auto_stories_outlined), text: 'Courses'),
+            Tab(icon: Icon(Icons.menu_book_outlined), text: 'Books'),
+            Tab(icon: Icon(Icons.assignment_outlined), text: 'Past Papers'),
+            Tab(icon: Icon(Icons.people_outlined), text: 'Users'),
+            Tab(icon: Icon(Icons.settings_outlined), text: 'Settings'),
           ],
         ),
       ),
@@ -255,6 +260,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           _buildOverviewTab(),
           _buildPaymentsTab(),
           _buildCoursesTab(),
+          _buildBooksTab(),
+          _buildPastPapersTab(),
+          _buildUsersTab(),
           _buildSettingsTab(),
         ],
       ),
@@ -264,9 +272,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Widget _buildOverviewTab() {
     final courses = _firestoreService.getCoursesSync();
     final videos = _firestoreService.getVideosSync();
+    final books = _firestoreService.getBooksSync();
+    final papers = _firestoreService.getPastPapersSync();
     final payments = _firestoreService.getAllPaymentsSync();
     final pendingCount = payments.where((p) => p.status == 'pending').length;
     final approvedCount = payments.where((p) => p.status == 'approved').length;
+    final users = _authService.getAllUsers();
+    final suspendedCount = users.where((u) => u.isSuspended).length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -287,8 +299,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 children: [
                   _buildStatCard('Active Courses', '${courses.length}', Icons.menu_book, AppTheme.primaryBlue),
                   _buildStatCard('Video Lessons', '${videos.length}', Icons.ondemand_video, AppTheme.accentCyan),
+                  _buildStatCard('Books', '${books.length}', Icons.auto_stories, const Color(0xFF7C3AED)),
+                  _buildStatCard('Past Papers', '${papers.length}', Icons.assignment, const Color(0xFF059669)),
                   _buildStatCard('Pending Payments', '$pendingCount', Icons.pending_actions, Colors.orange),
                   _buildStatCard('Approved Passes', '$approvedCount', Icons.verified, AppTheme.successGreen),
+                  if (suspendedCount > 0)
+                    _buildStatCard('Suspended Users', '$suspendedCount', Icons.block, AppTheme.errorRed),
                 ],
               ),
               const SizedBox(height: 32),
@@ -320,6 +336,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             icon: const Icon(Icons.video_call),
                             label: const Text('Add Video Lesson'),
                             onPressed: () => _showAddVideoDialog(),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+                            icon: const Icon(Icons.menu_book),
+                            label: const Text('Add Book'),
+                            onPressed: () => _showAddBookDialog(),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                            icon: const Icon(Icons.assignment_add),
+                            label: const Text('Add Past Paper'),
+                            onPressed: () => _showAddPastPaperDialog(),
                           ),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
@@ -680,6 +708,550 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════ BOOKS TAB ══════════════════════
+  Widget _buildBooksTab() {
+    final books = _firestoreService.getBooksSync();
+    final courses = _firestoreService.getCoursesSync();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 950),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Reference Books & Study Materials',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Book'),
+                    onPressed: () => _showAddBookDialog(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (books.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(child: Text('No books added yet. Click "Add Book" to upload.')),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: books.length,
+                  separatorBuilder: (c, i) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final b = books[index];
+                    final course = courses.firstWhere(
+                      (c) => c.id == b.courseId,
+                      orElse: () => CourseModel(
+                        id: '', title: 'General', description: '', imageUrl: '',
+                        order: 0, isPublished: true, createdAt: DateTime.now(), updatedAt: DateTime.now(),
+                      ),
+                    );
+                    return Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        leading: Container(
+                          width: 48,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF7C3AED), Color(0xFF4C1D95)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.menu_book, color: Colors.white, size: 28),
+                        ),
+                        title: Text(b.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('${b.author}\nCourse: ${course.title}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.errorRed),
+                              tooltip: 'Delete Book',
+                              onPressed: () async {
+                                await _firestoreService.deleteBook(b.id);
+                                setState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════ PAST PAPERS TAB ══════════════════════
+  Widget _buildPastPapersTab() {
+    final papers = _firestoreService.getPastPapersSync();
+    final years = _firestoreService.getAvailablePastPaperYears();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 950),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Past Papers Management',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Past Paper'),
+                    onPressed: () => _showAddPastPaperDialog(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (papers.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(child: Text('No past papers added yet.')),
+                  ),
+                )
+              else
+                ...years.map((year) {
+                  final yearPapers = papers.where((pp) => pp.year == year).toList();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12, top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF059669).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF059669).withOpacity(0.3)),
+                        ),
+                        child: Text(
+                          'Academic Year $year — ${yearPapers.length} paper(s)',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF059669),
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      // Group by type
+                      ..._buildPaperGroupRows(yearPapers, 'test1', 'Test 1', Colors.blue),
+                      ..._buildPaperGroupRows(yearPapers, 'test2', 'Test 2', const Color(0xFF7C3AED)),
+                      ..._buildPaperGroupRows(yearPapers, 'sessional', 'Sessional Exam', const Color(0xFF059669)),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildPaperGroupRows(List<PastPaperModel> papers, String type, String label, Color color) {
+    final group = papers.where((pp) => pp.type == type).toList();
+    if (group.isEmpty) return [];
+
+    return group.map((pp) => Card(
+      elevation: 1.5,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: color.withOpacity(0.2)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(Icons.picture_as_pdf, color: color, size: 24),
+        ),
+        title: Text(pp.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        subtitle: Text('$label • ${pp.year}\n${pp.description}'),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete_outline, color: AppTheme.errorRed),
+          onPressed: () async {
+            await _firestoreService.deletePastPaper(pp.id);
+            setState(() {});
+          },
+        ),
+      ),
+    )).toList();
+  }
+
+  // ══════════════════════ USERS TAB ══════════════════════
+  Widget _buildUsersTab() {
+    final users = _authService.getAllUsers().where((u) => u.role != 'admin').toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 950),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Registered Students',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Manage student accounts. Reactivate suspended accounts caused by device changes.',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              if (users.isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.0),
+                    child: Center(child: Text('No students registered yet.')),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: users.length,
+                  separatorBuilder: (c, i) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final u = users[index];
+                    final sub = _firestoreService.getSubscriptionSync(u.uid);
+                    final hasActiveSub = sub != null && sub.status == 'active';
+
+                    return Card(
+                      elevation: u.isSuspended ? 3 : 1.5,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: u.isSuspended ? AppTheme.errorRed.withOpacity(0.4) : Colors.transparent,
+                          width: u.isSuspended ? 1.5 : 0,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: u.isSuspended
+                                  ? AppTheme.errorRed.withOpacity(0.15)
+                                  : AppTheme.primaryBlue.withOpacity(0.12),
+                              child: Text(
+                                u.name.isNotEmpty ? u.name[0].toUpperCase() : 'S',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: u.isSuspended ? AppTheme.errorRed : AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        u.name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      if (u.isSuspended)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.errorRed,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'SUSPENDED',
+                                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  Text(u.email, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                                  if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty)
+                                    Text('📱 ${u.phoneNumber}', style: const TextStyle(fontSize: 11, color: AppTheme.primaryBlue)),
+                                  Text(
+                                    '${u.year ?? "N/A"} • ${u.program ?? "N/A"}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: hasActiveSub
+                                        ? AppTheme.successGreen.withOpacity(0.12)
+                                        : Colors.grey.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    hasActiveSub ? 'SUBSCRIBED' : 'NO SUB',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: hasActiveSub ? AppTheme.successGreen : Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                                if (u.isSuspended) ...[
+                                  const SizedBox(height: 8),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.successGreen,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      textStyle: const TextStyle(fontSize: 11),
+                                    ),
+                                    onPressed: () async {
+                                      await _authService.reactivateAccount(u.uid);
+                                      setState(() {});
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('${u.name}\'s account reactivated!')),
+                                      );
+                                    },
+                                    child: const Text('Reactivate', style: TextStyle(color: Colors.white)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════ DIALOGS ══════════════════════
+  void _showAddBookDialog() {
+    final courses = _firestoreService.getCoursesSync();
+    if (courses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please create a course before adding books.')),
+      );
+      return;
+    }
+
+    String selectedCourse = courses.first.id;
+    final titleCtrl = TextEditingController();
+    final authorCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Add Reference Book'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedCourse,
+                  decoration: const InputDecoration(labelText: 'Assign to Course'),
+                  items: courses
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedCourse = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Book Title')),
+                const SizedBox(height: 12),
+                TextField(controller: authorCtrl, decoration: const InputDecoration(labelText: 'Author(s)')),
+                const SizedBox(height: 12),
+                TextField(controller: descCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'Description')),
+                const SizedBox(height: 12),
+                TextField(controller: urlCtrl, decoration: const InputDecoration(
+                  labelText: 'PDF / Google Drive Link',
+                  hintText: 'https://drive.google.com/file/...',
+                )),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
+              onPressed: () async {
+                if (titleCtrl.text.trim().isNotEmpty) {
+                  final book = BookModel(
+                    id: 'book_${DateTime.now().millisecondsSinceEpoch}',
+                    title: titleCtrl.text.trim(),
+                    author: authorCtrl.text.trim(),
+                    description: descCtrl.text.trim(),
+                    courseId: selectedCourse,
+                    fileUrl: urlCtrl.text.trim(),
+                    isPublished: true,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  );
+                  await _firestoreService.saveBook(book);
+                  setState(() {});
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('Save Book', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddPastPaperDialog() {
+    final courses = _firestoreService.getCoursesSync();
+    if (courses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please create a course before adding past papers.')),
+      );
+      return;
+    }
+
+    String selectedCourse = courses.first.id;
+    String selectedType = 'test1';
+    final yearCtrl = TextEditingController(
+        text: DateTime.now().year.toString());
+    final titleCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+
+    const typeOptions = [
+      ('test1', 'Test 1'),
+      ('test2', 'Test 2'),
+      ('sessional', 'Sessional Exam'),
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Add Past Paper'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedCourse,
+                  decoration: const InputDecoration(labelText: 'Assign to Course'),
+                  items: courses
+                      .map((c) => DropdownMenuItem(value: c.id, child: Text(c.title)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedCourse = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(labelText: 'Paper Type'),
+                  items: typeOptions
+                      .map((t) => DropdownMenuItem(value: t.$1, child: Text(t.$2)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedType = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: yearCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Academic Year (e.g. 2024)',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Paper Title')),
+                const SizedBox(height: 12),
+                TextField(controller: descCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'Description')),
+                const SizedBox(height: 12),
+                TextField(controller: urlCtrl, decoration: const InputDecoration(
+                  labelText: 'PDF / Google Drive Link',
+                  hintText: 'https://drive.google.com/file/...',
+                )),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+              onPressed: () async {
+                if (titleCtrl.text.trim().isNotEmpty && yearCtrl.text.trim().isNotEmpty) {
+                  final paper = PastPaperModel(
+                    id: 'pp_${DateTime.now().millisecondsSinceEpoch}',
+                    title: titleCtrl.text.trim(),
+                    description: descCtrl.text.trim(),
+                    year: yearCtrl.text.trim(),
+                    type: selectedType,
+                    courseId: selectedCourse,
+                    fileUrl: urlCtrl.text.trim(),
+                    isPublished: true,
+                    createdAt: DateTime.now(),
+                    updatedAt: DateTime.now(),
+                  );
+                  await _firestoreService.savePastPaper(paper);
+                  setState(() {});
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text('Save Paper', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
       ),
     );

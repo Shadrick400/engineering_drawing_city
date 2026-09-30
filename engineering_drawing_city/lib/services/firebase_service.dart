@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:engineering_drawing_city/models/app_settings_model.dart';
+import 'package:engineering_drawing_city/models/book_model.dart';
 import 'package:engineering_drawing_city/models/course_model.dart';
+import 'package:engineering_drawing_city/models/past_paper_model.dart';
 import 'package:engineering_drawing_city/models/payment_model.dart';
 import 'package:engineering_drawing_city/models/subscription_model.dart';
 import 'package:engineering_drawing_city/models/user_model.dart';
@@ -56,7 +58,18 @@ class AuthService {
 
   void setCurrentUser(UserModel? user) {
     _currentUser = user;
+    if (user != null) {
+      _usersDb[user.uid] = user;
+      _usersDb[user.email.toLowerCase()] = user;
+    }
     _userStreamController.add(_currentUser);
+  }
+
+  /// Simulated device fingerprint (in production use device_info_plus package)
+  String _getDeviceId() {
+    // In real implementation: use device_info_plus to get a unique device ID
+    // For demo we use a fixed string per app install session
+    return 'device_${DateTime.now().day}_${DateTime.now().month}';
   }
 
   Future<UserModel> signInWithEmailPassword({
@@ -91,6 +104,24 @@ class AuthService {
       if (cred.user != null) {
         final existing = _usersDb[cred.user!.uid];
         if (existing != null) {
+          // Device lock check
+          final currentDeviceId = _getDeviceId();
+          if (existing.deviceId != null &&
+              existing.deviceId!.isNotEmpty &&
+              existing.deviceId != currentDeviceId) {
+            // Suspend account – device changed
+            final suspended = existing.copyWith(isSuspended: true);
+            _usersDb[suspended.uid] = suspended;
+            _usersDb[cleanEmail] = suspended;
+            throw Exception(
+                'ACCOUNT_SUSPENDED: This account has been suspended because a login was detected from a new device. '
+                'Please contact customer care at +260 772 184445 for reactivation.');
+          }
+          if (existing.isSuspended) {
+            throw Exception(
+                'ACCOUNT_SUSPENDED: Your account is suspended. '
+                'Please contact customer care at +260 772 184445 for reactivation.');
+          }
           _currentUser = existing;
         } else {
           _currentUser = UserModel(
@@ -98,6 +129,7 @@ class AuthService {
             email: cred.user!.email ?? cleanEmail,
             name: cred.user!.displayName ?? cleanEmail.split('@').first,
             role: 'student',
+            deviceId: _getDeviceId(),
             createdAt: DateTime.now(),
           );
           _usersDb[_currentUser!.uid] = _currentUser!;
@@ -107,6 +139,7 @@ class AuthService {
         return _currentUser!;
       }
     } catch (e) {
+      if (e.toString().contains('ACCOUNT_SUSPENDED')) rethrow;
       debugPrint('Firebase Auth signIn fallback to local store: $e');
     }
 
@@ -115,6 +148,25 @@ class AuthService {
       final storedPassword = _passwordsDb[cleanEmail];
       if (storedPassword == null || storedPassword == cleanPassword) {
         final user = _usersDb[cleanEmail]!;
+
+        // Device lock check for local users
+        final currentDeviceId = _getDeviceId();
+        if (user.deviceId != null &&
+            user.deviceId!.isNotEmpty &&
+            user.deviceId != currentDeviceId) {
+          final suspended = user.copyWith(isSuspended: true);
+          _usersDb[suspended.uid] = suspended;
+          _usersDb[cleanEmail] = suspended;
+          throw Exception(
+              'ACCOUNT_SUSPENDED: This account has been suspended because a login was detected from a new device. '
+              'Please contact customer care at +260 772 184445 for reactivation.');
+        }
+        if (user.isSuspended) {
+          throw Exception(
+              'ACCOUNT_SUSPENDED: Your account is suspended. '
+              'Please contact customer care at +260 772 184445 for reactivation.');
+        }
+
         _currentUser = user;
         _userStreamController.add(_currentUser);
         return user;
@@ -133,6 +185,7 @@ class AuthService {
     String? year,
     String? program,
     String? institution,
+    String? phoneNumber,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
 
@@ -145,6 +198,8 @@ class AuthService {
     if (_usersDb.containsKey(cleanEmail)) {
       throw Exception('An account already exists with this email. Please sign in.');
     }
+
+    final deviceId = _getDeviceId();
 
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
@@ -160,6 +215,8 @@ class AuthService {
           year: year,
           program: program,
           institution: institution,
+          phoneNumber: phoneNumber,
+          deviceId: deviceId,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -182,6 +239,8 @@ class AuthService {
       year: year,
       program: program,
       institution: institution,
+      phoneNumber: phoneNumber,
+      deviceId: deviceId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -193,6 +252,20 @@ class AuthService {
     _userStreamController.add(_currentUser);
 
     return userModel;
+  }
+
+  /// Reactivate a suspended account (admin action)
+  Future<void> reactivateAccount(String uid) async {
+    final user = _usersDb[uid];
+    if (user != null) {
+      final reactivated = user.copyWith(
+        isSuspended: false,
+        deviceId: _getDeviceId(),
+        updatedAt: DateTime.now(),
+      );
+      _usersDb[uid] = reactivated;
+      _usersDb[reactivated.email.toLowerCase()] = reactivated;
+    }
   }
 
   Future<void> signOut() async {
@@ -208,6 +281,16 @@ class AuthService {
       await _auth.sendPasswordResetEmail(email: email.trim());
     } catch (_) {}
   }
+
+  /// Get all users (for admin)
+  List<UserModel> getAllUsers() {
+    final seen = <String>{};
+    return _usersDb.values.where((u) {
+      if (seen.contains(u.uid)) return false;
+      seen.add(u.uid);
+      return true;
+    }).toList();
+  }
 }
 
 class FirestoreService {
@@ -222,6 +305,8 @@ class FirestoreService {
   // In-memory data store with reactive StreamControllers
   final Map<String, CourseModel> _courses = {};
   final Map<String, VideoModel> _videos = {};
+  final Map<String, BookModel> _books = {};
+  final Map<String, PastPaperModel> _pastPapers = {};
   final Map<String, SubscriptionModel> _subscriptions = {};
   final Map<String, PaymentModel> _payments = {};
   final Map<String, UserModel> _users = {};
@@ -231,6 +316,10 @@ class FirestoreService {
       StreamController<List<CourseModel>>.broadcast();
   final StreamController<List<VideoModel>> _videosController =
       StreamController<List<VideoModel>>.broadcast();
+  final StreamController<List<BookModel>> _booksController =
+      StreamController<List<BookModel>>.broadcast();
+  final StreamController<List<PastPaperModel>> _pastPapersController =
+      StreamController<List<PastPaperModel>>.broadcast();
   final StreamController<List<SubscriptionModel>> _subscriptionsController =
       StreamController<List<SubscriptionModel>>.broadcast();
   final StreamController<List<PaymentModel>> _paymentsController =
@@ -502,8 +591,131 @@ class FirestoreService {
       _videos[v.id] = v;
     }
 
-    // 4. Initial Subscriptions
-    // Pre-activate student_01 so all video features and full access are immediately testable
+    // 4. Seed Books
+    final seedBooks = [
+      BookModel(
+        id: 'book_01',
+        title: 'Engineering Drawing (N.D. Bhatt)',
+        author: 'N.D. Bhatt & V.M. Panchal',
+        description:
+            'The classic reference for engineering drawing covering all fundamentals, orthographic projections, and machine drawing in detail.',
+        courseId: 'course_01',
+        fileUrl: 'https://drive.google.com/file/d/sample_bhatt',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 60)),
+        updatedAt: DateTime.now(),
+      ),
+      BookModel(
+        id: 'book_02',
+        title: 'Engineering Graphics with AutoCAD',
+        author: 'James D. Bethune',
+        description:
+            'Integrates 2D and 3D CAD with traditional engineering graphics principles. Covers projections, sections, and GD&T.',
+        courseId: 'course_05',
+        fileUrl: 'https://drive.google.com/file/d/sample_autocad',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 45)),
+        updatedAt: DateTime.now(),
+      ),
+      BookModel(
+        id: 'book_03',
+        title: 'Fundamentals of Technical Drawing',
+        author: 'Giesecke et al.',
+        description:
+            'Comprehensive textbook covering lines, lettering, geometric constructions, orthographic and isometric views.',
+        courseId: 'course_02',
+        fileUrl: 'https://drive.google.com/file/d/sample_giesecke',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 30)),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+
+    for (var b in seedBooks) {
+      _books[b.id] = b;
+    }
+
+    // 5. Seed Past Papers
+    final seedPastPapers = [
+      PastPaperModel(
+        id: 'pp_01',
+        title: 'Test 1 – 2023 (Fundamentals)',
+        description: 'Drawing instruments, line types, and plain scales.',
+        year: '2023',
+        type: 'test1',
+        courseId: 'course_01',
+        fileUrl: 'https://drive.google.com/file/d/sample_test1_2023',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 365)),
+        updatedAt: DateTime.now(),
+      ),
+      PastPaperModel(
+        id: 'pp_02',
+        title: 'Test 2 – 2023 (Projections)',
+        description: 'First and third angle projections problems.',
+        year: '2023',
+        type: 'test2',
+        courseId: 'course_02',
+        fileUrl: 'https://drive.google.com/file/d/sample_test2_2023',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 350)),
+        updatedAt: DateTime.now(),
+      ),
+      PastPaperModel(
+        id: 'pp_03',
+        title: 'Sessional Exam – 2023',
+        description: 'Full course sessional examination covering all topics.',
+        year: '2023',
+        type: 'sessional',
+        courseId: 'course_01',
+        fileUrl: 'https://drive.google.com/file/d/sample_sessional_2023',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 330)),
+        updatedAt: DateTime.now(),
+      ),
+      PastPaperModel(
+        id: 'pp_04',
+        title: 'Test 1 – 2024 (Fundamentals)',
+        description: 'Drawing standards, title blocks, and lettering.',
+        year: '2024',
+        type: 'test1',
+        courseId: 'course_01',
+        fileUrl: 'https://drive.google.com/file/d/sample_test1_2024',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 180)),
+        updatedAt: DateTime.now(),
+      ),
+      PastPaperModel(
+        id: 'pp_05',
+        title: 'Test 2 – 2024 (Isometric)',
+        description: 'Isometric box method and four-centre ellipse exercises.',
+        year: '2024',
+        type: 'test2',
+        courseId: 'course_03',
+        fileUrl: 'https://drive.google.com/file/d/sample_test2_2024',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 165)),
+        updatedAt: DateTime.now(),
+      ),
+      PastPaperModel(
+        id: 'pp_06',
+        title: 'Sessional Exam – 2024',
+        description: 'Full sessional covering orthographic, isometric, and sectioning.',
+        year: '2024',
+        type: 'sessional',
+        courseId: 'course_02',
+        fileUrl: 'https://drive.google.com/file/d/sample_sessional_2024',
+        isPublished: true,
+        createdAt: DateTime.now().subtract(const Duration(days: 140)),
+        updatedAt: DateTime.now(),
+      ),
+    ];
+
+    for (var pp in seedPastPapers) {
+      _pastPapers[pp.id] = pp;
+    }
+
+    // 6. Initial Subscriptions
     final activeSub = SubscriptionModel(
       id: 'sub_student_01',
       userId: 'student_01',
@@ -517,7 +729,7 @@ class FirestoreService {
     );
     _subscriptions[activeSub.userId] = activeSub;
 
-    // 5. Seed Payments (1 Pending payment to test admin approval, 1 approved)
+    // 7. Seed Payments
     final pendingPayment = PaymentModel(
       id: 'pay_001',
       userId: 'student_01',
@@ -663,6 +875,98 @@ class FirestoreService {
     } catch (_) {}
   }
 
+  // ================= BOOKS =================
+  Future<void> saveBook(BookModel book) async {
+    _books[book.id] = book;
+    _booksController.add(_books.values.toList());
+    try {
+      await _db.collection('books').doc(book.id).set(book.toMap());
+    } catch (_) {}
+  }
+
+  Stream<List<BookModel>> getBooks() {
+    final list = _books.values.toList();
+    return _booksController.stream.asBroadcastStream(
+      onListen: (sub) {
+        _booksController.add(list);
+      },
+    );
+  }
+
+  List<BookModel> getBooksSync() {
+    return _books.values.toList();
+  }
+
+  List<BookModel> getBooksByCourseSync(String courseId) {
+    return _books.values.where((b) => b.courseId == courseId).toList();
+  }
+
+  Future<void> updateBook(BookModel book) async {
+    _books[book.id] = book;
+    _booksController.add(_books.values.toList());
+    try {
+      await _db.collection('books').doc(book.id).update(book.toMap());
+    } catch (_) {}
+  }
+
+  Future<void> deleteBook(String bookId) async {
+    _books.remove(bookId);
+    _booksController.add(_books.values.toList());
+    try {
+      await _db.collection('books').doc(bookId).delete();
+    } catch (_) {}
+  }
+
+  // ================= PAST PAPERS =================
+  Future<void> savePastPaper(PastPaperModel paper) async {
+    _pastPapers[paper.id] = paper;
+    _pastPapersController.add(_pastPapers.values.toList());
+    try {
+      await _db.collection('past_papers').doc(paper.id).set(paper.toMap());
+    } catch (_) {}
+  }
+
+  Stream<List<PastPaperModel>> getPastPapers() {
+    final list = _pastPapers.values.toList();
+    return _pastPapersController.stream.asBroadcastStream(
+      onListen: (sub) {
+        _pastPapersController.add(list);
+      },
+    );
+  }
+
+  List<PastPaperModel> getPastPapersSync() {
+    return _pastPapers.values.toList();
+  }
+
+  List<PastPaperModel> getPastPapersByYearAndType(String year, String type) {
+    return _pastPapers.values
+        .where((pp) => pp.year == year && pp.type == type)
+        .toList();
+  }
+
+  List<String> getAvailablePastPaperYears() {
+    final years = _pastPapers.values.map((pp) => pp.year).toSet().toList();
+    years.sort((a, b) => b.compareTo(a)); // newest first
+    return years;
+  }
+
+  Future<void> updatePastPaper(PastPaperModel paper) async {
+    _pastPapers[paper.id] = paper;
+    _pastPapersController.add(_pastPapers.values.toList());
+    try {
+      await _db.collection('past_papers').doc(paper.id).update(paper.toMap());
+    } catch (_) {}
+  }
+
+  Future<void> deletePastPaper(String paperId) async {
+    _pastPapers.remove(paperId);
+    _pastPapersController.add(_pastPapers.values.toList());
+    try {
+      await _db.collection('past_papers').doc(paperId).delete();
+    } catch (_) {}
+  }
+
   // ================= SUBSCRIPTIONS =================
   Future<void> saveSubscription(SubscriptionModel subscription) async {
     _subscriptions[subscription.userId] = subscription;
@@ -688,7 +992,14 @@ class FirestoreService {
     return Stream.value(_subscriptions.values.toList());
   }
 
-  // Activate 30 days subscription for user (used for testing and approvals)
+  bool hasActiveSubscription(String userId) {
+    final sub = _subscriptions[userId];
+    return sub != null &&
+        sub.status == 'active' &&
+        sub.expiryDate.isAfter(DateTime.now());
+  }
+
+  // Activate 30 days subscription for user
   Future<SubscriptionModel> activateSubscription({
     required String userId,
     required String paymentReference,
@@ -714,10 +1025,7 @@ class FirestoreService {
   /// Airtel mobile money number – all payments to this number are auto-approved.
   static const String _airtelPaymentNumber = '0772184445';
 
-  /// Submit a new payment. Auto-activates subscription immediately (simulating
-  /// Airtel 0772184445 confirmation).
   Future<void> savePayment(PaymentModel payment) async {
-    // Mark as approved immediately (Airtel auto-confirm)
     final approved = PaymentModel(
       id: payment.id,
       userId: payment.userId,
@@ -731,7 +1039,6 @@ class FirestoreService {
     );
     _payments[approved.id] = approved;
     _paymentsController.add(_payments.values.toList());
-    // Auto-activate subscription for the student
     await activateSubscription(
       userId: payment.userId,
       paymentReference: payment.paymentReference,

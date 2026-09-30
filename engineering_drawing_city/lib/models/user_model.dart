@@ -7,6 +7,9 @@ class UserModel {
   final String? year;         // e.g. "Year 1", "Year 2", etc.
   final String? program;      // e.g. "Civil Engineering"
   final String? institution;  // e.g. "The Copperbelt University"
+  final String? phoneNumber;  // mobile money / contact number
+  final String? deviceId;     // registered device fingerprint (for device-lock)
+  final bool isSuspended;     // true when device change detected
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -19,6 +22,9 @@ class UserModel {
     this.year,
     this.program,
     this.institution,
+    this.phoneNumber,
+    this.deviceId,
+    this.isSuspended = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -33,6 +39,9 @@ class UserModel {
       year: data['year'],
       program: data['program'],
       institution: data['institution'],
+      phoneNumber: data['phoneNumber'],
+      deviceId: data['deviceId'],
+      isSuspended: data['isSuspended'] ?? false,
       createdAt: data['createdAt'] != null
           ? DateTime.parse(data['createdAt'])
           : null,
@@ -51,8 +60,43 @@ class UserModel {
       'year': year,
       'program': program,
       'institution': institution,
+      'phoneNumber': phoneNumber,
+      'deviceId': deviceId,
+      'isSuspended': isSuspended,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
+  }
+
+  UserModel copyWith({
+    String? uid,
+    String? email,
+    String? name,
+    String? role,
+    String? photoUrl,
+    String? year,
+    String? program,
+    String? institution,
+    String? phoneNumber,
+    String? deviceId,
+    bool? isSuspended,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return UserModel(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      photoUrl: photoUrl ?? this.photoUrl,
+      year: year ?? this.year,
+      program: program ?? this.program,
+      institution: institution ?? this.institution,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      deviceId: deviceId ?? this.deviceId,
+      isSuspended: isSuspended ?? this.isSuspended,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }
