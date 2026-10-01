@@ -172,12 +172,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 12),
               Text(
-                '4. Content Use',
+                '4. Content Use & No Downloads Policy',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               SizedBox(height: 4),
               Text(
-                'All video lessons, books, and past papers are for personal educational use only. Redistribution, copying, or commercial use is strictly prohibited.',
+                'All video lessons, books, and past examination papers are strictly for in-app viewing only. Downloading, saving, capturing, or distributing any materials is prohibited and will result in immediate account suspension.',
                 style: TextStyle(fontSize: 13),
               ),
               SizedBox(height: 12),
@@ -559,8 +559,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 16),
 
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           const Text(
                             'Already have an account?',

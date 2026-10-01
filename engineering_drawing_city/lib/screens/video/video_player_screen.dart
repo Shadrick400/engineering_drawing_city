@@ -381,26 +381,42 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget _buildNavigationRow(List<VideoModel> playlist) {
     final currentIndex = playlist.indexWhere((v) => v.id == _currentVideo.id);
 
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Previous Lesson'),
-            onPressed: currentIndex > 0 ? _navigateToPrevious : null,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 550;
+
+        final prevButton = OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
           ),
-        ),
-        const SizedBox(width: 12),
-        ElevatedButton.icon(
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('Previous', style: TextStyle(fontSize: 12)),
+          onPressed: currentIndex > 0 ? _navigateToPrevious : null,
+        );
+
+        final nextButton = OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          ),
+          icon: const Icon(Icons.arrow_forward, size: 16),
+          label: const Text('Next Lesson', style: TextStyle(fontSize: 12)),
+          onPressed: currentIndex < playlist.length - 1 ? _navigateToNext : null,
+        );
+
+        final markDoneButton = ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-            backgroundColor: _isCompleted ? AppTheme.successGreen : AppTheme.primaryBlue,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            backgroundColor:
+                _isCompleted ? AppTheme.successGreen : AppTheme.primaryBlue,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          icon: Icon(_isCompleted ? Icons.check_circle : Icons.check_circle_outline),
-          label: Text(_isCompleted ? 'Completed' : 'Mark Done'),
+          icon: Icon(
+            _isCompleted ? Icons.check_circle : Icons.check_circle_outline,
+            size: 18,
+          ),
+          label: Text(
+            _isCompleted ? 'Completed' : 'Mark Done',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
           onPressed: () {
             setState(() {
               _isCompleted = !_isCompleted;
@@ -411,19 +427,37 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               }
             });
           },
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Next Lesson'),
-            onPressed: currentIndex < playlist.length - 1 ? _navigateToNext : null,
-          ),
-        ),
-      ],
+        );
+
+        if (isNarrow) {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: prevButton),
+                  const SizedBox(width: 10),
+                  Expanded(child: nextButton),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: markDoneButton,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: prevButton),
+            const SizedBox(width: 12),
+            markDoneButton,
+            const SizedBox(width: 12),
+            Expanded(child: nextButton),
+          ],
+        );
+      },
     );
   }
 
@@ -436,6 +470,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shield_outlined, size: 14, color: AppTheme.errorRed),
+                  SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      '🔒 In-App Streaming Only • Downloads Disabled',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.errorRed),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Row(
               children: [
                 Container(

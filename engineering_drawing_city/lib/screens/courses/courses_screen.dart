@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:engineering_drawing_city/models/book_model.dart';
 import 'package:engineering_drawing_city/models/course_model.dart';
@@ -7,6 +6,7 @@ import 'package:engineering_drawing_city/models/past_paper_model.dart';
 import 'package:engineering_drawing_city/models/video_model.dart';
 import 'package:engineering_drawing_city/services/firebase_service.dart';
 import 'package:engineering_drawing_city/theme/app_theme.dart';
+import 'package:engineering_drawing_city/widgets/in_app_document_viewer.dart';
 
 class CoursesScreen extends StatefulWidget {
   static const String routeName = '/courses';
@@ -242,15 +242,18 @@ class _VideosTabState extends State<_VideosTab> {
                                     const Icon(Icons.play_circle_outline,
                                         size: 16, color: AppTheme.primaryBlue),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      '${videos.length} Video Lessons',
-                                      style: const TextStyle(
-                                        color: AppTheme.primaryBlue,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        '${videos.length} Video Lessons',
+                                        style: const TextStyle(
+                                          color: AppTheme.primaryBlue,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    const Spacer(),
+                                    const SizedBox(width: 8),
                                     Text(
                                       isExpanded ? 'Hide' : 'View Lessons',
                                       style: const TextStyle(
@@ -488,12 +491,16 @@ class _BookCard extends StatelessWidget {
                       const Icon(Icons.person_outline,
                           size: 14, color: AppTheme.textMuted),
                       const SizedBox(width: 4),
-                      Text(
-                        book.author,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.primaryBlue,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Text(
+                          book.author,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.primaryBlue,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -518,25 +525,20 @@ class _BookCard extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8)),
                     ),
-                    icon: const Icon(Icons.open_in_new, size: 16,
+                    icon: const Icon(Icons.menu_book, size: 16,
                         color: Colors.white),
-                    label: const Text('Open Book',
+                    label: const Text('Read Inside App',
                         style: TextStyle(fontSize: 12, color: Colors.white)),
-                    onPressed: () async {
-                      if (book.fileUrl.isNotEmpty &&
-                          book.fileUrl.startsWith('http')) {
-                        final uri = Uri.parse(book.fileUrl);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.externalApplication);
-                        }
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Book link not available yet.'),
-                          ),
-                        );
-                      }
+                    onPressed: () {
+                      InAppDocumentViewer.show(
+                        context,
+                        title: book.title,
+                        subtitle: book.author,
+                        documentType: 'Book',
+                        fileUrl: book.fileUrl,
+                        authorOrYear: 'Author: ${book.author}',
+                        description: book.description,
+                      );
                     },
                   ),
                 ],
@@ -848,11 +850,14 @@ class _PastPaperCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        paper.year,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textMuted,
+                      Flexible(
+                        child: Text(
+                          paper.year,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textMuted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -861,7 +866,7 @@ class _PastPaperCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            ElevatedButton(
+            ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: typeColor,
                 padding:
@@ -869,24 +874,22 @@ class _PastPaperCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: () async {
-                if (paper.fileUrl.isNotEmpty &&
-                    paper.fileUrl.startsWith('http')) {
-                  final uri = Uri.parse(paper.fileUrl);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'PDF for "${paper.title}" not available yet. Check back soon.'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Download',
+              icon: const Icon(Icons.visibility, size: 15, color: Colors.white),
+              label: const Text('View Inside',
                   style: TextStyle(fontSize: 12, color: Colors.white)),
+              onPressed: () {
+                InAppDocumentViewer.show(
+                  context,
+                  title: paper.title,
+                  subtitle: '${paper.year} • ${paper.typeLabel}',
+                  documentType: 'Past Paper',
+                  fileUrl: paper.fileUrl,
+                  authorOrYear: 'Examination: ${paper.year} (${paper.typeLabel})',
+                  description: paper.description.isNotEmpty
+                      ? paper.description
+                      : 'Past technical drawing examination paper. Viewing is strictly inside the app.',
+                );
+              },
             ),
           ],
         ),

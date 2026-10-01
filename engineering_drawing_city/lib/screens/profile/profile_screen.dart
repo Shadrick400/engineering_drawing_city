@@ -93,7 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 // Suspension Banner
                 if (user.isSuspended)
-                  _buildSuspensionBanner(),
+                  _buildSuspensionBanner(user),
 
                 // Profile Header Card
                 _buildProfileCard(user),
@@ -132,14 +132,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSuspensionBanner() {
+  Widget _buildSuspensionBanner(UserModel user) {
+    final reason = user.suspensionReason ??
+        'A login was detected from an unrecognized device in violation of the single-device terms policy.';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.errorRed.withOpacity(0.1),
+        color: AppTheme.errorRed.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.errorRed.withOpacity(0.4), width: 1.5),
+        border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.4), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,21 +151,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Icon(Icons.block, color: AppTheme.errorRed, size: 22),
               SizedBox(width: 10),
-              Text(
-                'Account Suspended',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.errorRed,
+              Flexible(
+                child: Text(
+                  'Account Suspended',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.errorRed,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
+          Text(
+            'Violation: $reason',
+            style: const TextStyle(fontSize: 13, color: Colors.black87, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
           const Text(
-            'Your account was suspended because a login was detected from a different device. '
-            'This is to protect your account from unauthorized access.',
-            style: TextStyle(fontSize: 13, color: Colors.black87),
+            'Contact customer care or the administrator to reactivate your access per Terms & Conditions.',
+            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
@@ -173,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(10)),
             ),
             icon: const Icon(Icons.phone, color: Colors.white, size: 18),
-            label: const Text('Contact Customer Care',
+            label: const Text('Contact Customer Care (+260 772 184445)',
                 style: TextStyle(color: Colors.white, fontSize: 13)),
             onPressed: () async {
               final uri = Uri.parse('tel:+260772184445');
@@ -327,21 +337,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Icon(icon, color: AppTheme.primaryBlue, size: 20),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textMuted,
-                    fontWeight: FontWeight.w500)),
-            const SizedBox(height: 2),
-            Text(value,
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.darkNavy)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.darkNavy)),
+            ],
+          ),
         ),
       ],
     );
@@ -844,11 +856,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'Subscription fees are non-refundable. Access to AI features and premium content requires an active subscription. No payments = No AI access.',
                   style: TextStyle(fontSize: 13)),
               SizedBox(height: 12),
-              Text('4. Content Use',
+              Text('4. Content Use & No Downloads Policy',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               SizedBox(height: 4),
               Text(
-                  'All content is for personal educational use only. Redistribution, copying, or commercial use is strictly prohibited.',
+                  'All books, past examination papers, and video lectures are strictly for in-app viewing only. Downloading, saving, capturing, or distributing any materials is prohibited and constitutes grounds for immediate account suspension.',
                   style: TextStyle(fontSize: 13)),
               SizedBox(height: 12),
               Text('5. Intellectual Property',

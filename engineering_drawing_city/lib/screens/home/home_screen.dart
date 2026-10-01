@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:engineering_drawing_city/models/app_settings_model.dart';
 import 'package:engineering_drawing_city/models/course_model.dart';
 import 'package:engineering_drawing_city/models/payment_model.dart';
-import 'package:engineering_drawing_city/models/subscription_model.dart';
 import 'package:engineering_drawing_city/models/video_model.dart';
 import 'package:engineering_drawing_city/services/firebase_service.dart';
 import 'package:engineering_drawing_city/theme/app_theme.dart';
@@ -40,18 +38,25 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(Icons.architecture, color: AppTheme.accentCyan, size: 22),
             ),
             const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Engineering Drawing City',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Technical Drafting Portal',
-                  style: TextStyle(fontSize: 11, color: AppTheme.accentCyan),
-                ),
-              ],
+            const Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Engineering Drawing City',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Technical Drafting Portal',
+                    style: TextStyle(fontSize: 11, color: AppTheme.accentCyan),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -296,23 +301,28 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Featured Video Lessons',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.darkNavy,
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Featured Video Lessons',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.darkNavy,
+                    ),
                   ),
-                ),
-                Text(
-                  'Core curriculum videos with worked engineering problems',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                ),
-              ],
+                  Text(
+                    'Core curriculum videos with worked engineering problems',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             TextButton(
               onPressed: () => Navigator.pushNamed(context, '/courses'),
               child: const Text('View All'),
@@ -474,23 +484,28 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Engineering Drawing Courses',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.darkNavy,
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Engineering Drawing Courses',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.darkNavy,
+                    ),
                   ),
-                ),
-                Text(
-                  'Structured step-by-step drafting series',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                ),
-              ],
+                  Text(
+                    'Structured step-by-step drafting series',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             TextButton.icon(
               icon: const Icon(Icons.arrow_forward, size: 16),
               label: const Text('Open All'),
@@ -601,7 +616,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildAITutorCallout() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -614,47 +629,92 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.psychology, size: 36, color: AppTheme.primaryBlue),
-          ),
-          const SizedBox(width: 18),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Have Questions on Projections or GD&T?',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.darkNavy,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Ask our AI Drawing Tutor for instant guidance on standards, symbols, and drafting rules.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 520;
+          final button = ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryBlue,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             onPressed: () => Navigator.pushNamed(context, '/ai-assistant'),
-            child: const Text('Open AI Tutor', style: TextStyle(fontSize: 13)),
-          ),
-        ],
+            child: const Text('Open AI Tutor', style: TextStyle(fontSize: 13, color: Colors.white)),
+          );
+
+          if (isNarrow) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlue.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.psychology, size: 28, color: AppTheme.primaryBlue),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Questions on Projections or GD&T?',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.darkNavy,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ask our AI Drawing Tutor for instant guidance on standards, symbols, and drafting rules.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(width: double.infinity, child: button),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.psychology, size: 36, color: AppTheme.primaryBlue),
+              ),
+              const SizedBox(width: 18),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Have Questions on Projections or GD&T?',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.darkNavy,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Ask our AI Drawing Tutor for instant guidance on standards, symbols, and drafting rules.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              button,
+            ],
+          );
+        },
       ),
     );
   }
@@ -673,7 +733,11 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(Icons.workspace_premium, color: AppTheme.accentGold, size: 28),
               SizedBox(width: 10),
-              Text('Unlock All Video Modules', style: TextStyle(fontSize: 18)),
+              Flexible(
+                child: Text('Unlock All Video Modules',
+                    style: TextStyle(fontSize: 17),
+                    overflow: TextOverflow.ellipsis),
+              ),
             ],
           ),
           content: SingleChildScrollView(

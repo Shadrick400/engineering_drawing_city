@@ -195,7 +195,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         return 'No books have been uploaded yet. Please check the Books tab under Courses for updates.';
       }
       final bookList = books.map((b) => '📚 **${b.title}** by ${b.author}\n   ${b.description}').join('\n\n');
-      return '**Books Available in Engineering Drawing City:**\n\n$bookList\n\nOpen the Books tab in Courses to download them.';
+      return '**Books Available in Engineering Drawing City:**\n\n$bookList\n\nOpen the Books tab in Courses to read them inside the app (view-only protected mode).';
     }
 
     if (q.contains('past paper') || q.contains('test 1') || q.contains('test 2') ||
@@ -211,7 +211,7 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         final sess = papers.where((p) => p.year == year && p.type == 'sessional').length;
         return '📅 **$year**: Test 1 ($test1), Test 2 ($test2), Sessional ($sess)';
       }).join('\n');
-      return '**Past Papers Available:**\n\n$paperInfo\n\nOpen the Past Papers tab in Courses → filter by year to download.';
+      return '**Past Papers Available:**\n\n$paperInfo\n\nOpen the Past Papers tab in Courses → filter by year to view them inside the app (downloads disabled).';
     }
 
     if (q.contains('video') || q.contains('lesson') || q.contains('watch')) {
@@ -380,7 +380,12 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
           children: [
             Icon(Icons.psychology, color: AppTheme.accentCyan),
             SizedBox(width: 10),
-            Text('AI Engineering Drawing Tutor'),
+            Flexible(
+              child: Text(
+                'AI Engineering Drawing Tutor',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         actions: [

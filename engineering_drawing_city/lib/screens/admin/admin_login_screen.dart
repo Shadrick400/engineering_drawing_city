@@ -206,7 +206,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -249,7 +249,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(icon: Icon(Icons.auto_stories_outlined), text: 'Courses'),
             Tab(icon: Icon(Icons.menu_book_outlined), text: 'Books'),
             Tab(icon: Icon(Icons.assignment_outlined), text: 'Past Papers'),
-            Tab(icon: Icon(Icons.people_outlined), text: 'Users'),
+            Tab(icon: Icon(Icons.people_outlined), text: 'Students'),
+            Tab(icon: Icon(Icons.block_outlined), text: 'Suspended'),
             Tab(icon: Icon(Icons.settings_outlined), text: 'Settings'),
           ],
         ),
@@ -263,6 +264,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           _buildBooksTab(),
           _buildPastPapersTab(),
           _buildUsersTab(),
+          _buildSuspendedUsersTab(),
           _buildSettingsTab(),
         ],
       ),
@@ -556,10 +558,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Engineering Curriculum Modules',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                  const Flexible(
+                    child: Text(
+                      'Engineering Curriculum Modules',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
                     icon: const Icon(Icons.add),
@@ -729,10 +735,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Reference Books & Study Materials',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                  const Flexible(
+                    child: Text(
+                      'Reference Books & Study Materials',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF7C3AED)),
                     icon: const Icon(Icons.add),
@@ -822,10 +832,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Past Papers Management',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                  const Flexible(
+                    child: Text(
+                      'Past Papers Management',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
                     icon: const Icon(Icons.add),
@@ -916,147 +930,444 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   // ══════════════════════ USERS TAB ══════════════════════
   Widget _buildUsersTab() {
-    final users = _authService.getAllUsers().where((u) => u.role != 'admin').toList();
+    final allUsers = _authService.getAllUsers().where((u) => u.role != 'admin').toList();
+    final activeUsers = allUsers.where((u) => !u.isSuspended).toList();
+    final suspendedCount = allUsers.where((u) => u.isSuspended).length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 950),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Registered Students',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Manage student accounts. Reactivate suspended accounts caused by device changes.',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 13),
+              // Header
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Student Account Management',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${activeUsers.length} active • $suspendedCount suspended',
+                          style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (suspendedCount > 0)
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.errorRed,
+                        side: const BorderSide(color: AppTheme.errorRed),
+                      ),
+                      icon: const Icon(Icons.block, size: 16),
+                      label: Text('View Suspended ($suspendedCount)'),
+                      onPressed: () => _tabController.animateTo(6),
+                    ),
+                ],
               ),
               const SizedBox(height: 20),
-              if (users.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(32.0),
-                    child: Center(child: Text('No students registered yet.')),
+              if (activeUsers.isEmpty)
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: const Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.people_outline, size: 48, color: AppTheme.textMuted),
+                          SizedBox(height: 12),
+                          Text('No active students registered yet.', style: TextStyle(color: AppTheme.textMuted)),
+                        ],
+                      ),
+                    ),
                   ),
                 )
               else
                 ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: users.length,
-                  separatorBuilder: (c, i) => const SizedBox(height: 8),
+                  itemCount: activeUsers.length,
+                  separatorBuilder: (c, i) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final u = users[index];
+                    final u = activeUsers[index];
                     final sub = _firestoreService.getSubscriptionSync(u.uid);
                     final hasActiveSub = sub != null && sub.status == 'active';
 
                     return Card(
-                      elevation: u.isSuspended ? 3 : 1.5,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: u.isSuspended ? AppTheme.errorRed.withOpacity(0.4) : Colors.transparent,
-                          width: u.isSuspended ? 1.5 : 0,
-                        ),
-                      ),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       child: Padding(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
+                            // Avatar
                             CircleAvatar(
-                              backgroundColor: u.isSuspended
-                                  ? AppTheme.errorRed.withOpacity(0.15)
-                                  : AppTheme.primaryBlue.withOpacity(0.12),
+                              radius: 24,
+                              backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.12),
                               child: Text(
                                 u.name.isNotEmpty ? u.name[0].toUpperCase() : 'S',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: u.isSuspended ? AppTheme.errorRed : AppTheme.primaryBlue,
+                                  fontSize: 18,
+                                  color: AppTheme.primaryBlue,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 14),
+                            // Info
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        u.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      if (u.isSuspended)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.errorRed,
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Text(
-                                            'SUSPENDED',
-                                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                    ],
+                                  Text(
+                                    u.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: AppTheme.darkNavy,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(u.email, style: const TextStyle(fontSize: 12, color: AppTheme.textMuted)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    u.email,
+                                    style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                   if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty)
                                     Text('📱 ${u.phoneNumber}', style: const TextStyle(fontSize: 11, color: AppTheme.primaryBlue)),
-                                  Text(
-                                    '${u.year ?? "N/A"} • ${u.program ?? "N/A"}',
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      if (u.year != null)
+                                        _buildChip(u.year!, const Color(0xFF2563EB)),
+                                      if (u.program != null)
+                                        _buildChip(u.program!, const Color(0xFF7C3AED)),
+                                      _buildChip(
+                                        hasActiveSub ? 'Subscribed ✓' : 'No Subscription',
+                                        hasActiveSub ? AppTheme.successGreen : Colors.grey,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            const SizedBox(width: 8),
+                            // Action
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.errorRed,
+                                side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.6)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                textStyle: const TextStyle(fontSize: 11),
+                              ),
+                              icon: const Icon(Icons.block, size: 14),
+                              label: const Text('Suspend'),
+                              onPressed: () => _showSuspendUserDialog(u.uid, u.name),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ══════════════════════ SUSPENDED USERS TAB ══════════════════════
+  Widget _buildSuspendedUsersTab() {
+    final suspendedUsers = _authService.getAllUsers()
+        .where((u) => u.role != 'admin' && u.isSuspended)
+        .toList();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 950),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header banner
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [AppTheme.errorRed, const Color(0xFF7F1D1D)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.gavel, color: Colors.white, size: 28),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Terms & Conditions Enforcement',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${suspendedUsers.length} account(s) suspended. Review violations and activate eligible accounts.',
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (suspendedUsers.isEmpty)
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: const Padding(
+                    padding: EdgeInsets.all(48.0),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.verified_user_outlined, size: 64, color: AppTheme.successGreen),
+                          SizedBox(height: 16),
+                          Text(
+                            'No suspended accounts',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.darkNavy),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'All students are in good standing with the Terms & Conditions.',
+                            style: TextStyle(color: AppTheme.textMuted),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: suspendedUsers.length,
+                  separatorBuilder: (c, i) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final u = suspendedUsers[index];
+                    return Card(
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: AppTheme.errorRed.withValues(alpha: 0.35), width: 1.5),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top row: avatar + info + status chip
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: hasActiveSub
-                                        ? AppTheme.successGreen.withOpacity(0.12)
-                                        : Colors.grey.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
+                                CircleAvatar(
+                                  radius: 26,
+                                  backgroundColor: AppTheme.errorRed.withValues(alpha: 0.12),
                                   child: Text(
-                                    hasActiveSub ? 'SUBSCRIBED' : 'NO SUB',
-                                    style: TextStyle(
-                                      fontSize: 10,
+                                    u.name.isNotEmpty ? u.name[0].toUpperCase() : 'S',
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: hasActiveSub ? AppTheme.successGreen : Colors.grey,
+                                      fontSize: 20,
+                                      color: AppTheme.errorRed,
                                     ),
                                   ),
                                 ),
-                                if (u.isSuspended) ...[
-                                  const SizedBox(height: 8),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.successGreen,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      textStyle: const TextStyle(fontSize: 11),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              u.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                                color: AppTheme.darkNavy,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.errorRed,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Text(
+                                              'SUSPENDED',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        u.email,
+                                        style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty)
+                                        Text('📱 ${u.phoneNumber}',
+                                            style: const TextStyle(fontSize: 11, color: AppTheme.primaryBlue)),
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (u.year != null) _buildChip(u.year!, const Color(0xFF2563EB)),
+                                          if (u.program != null) _buildChip(u.program!, const Color(0xFF7C3AED)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            // Suspension reason box
+                            if (u.suspensionReason != null && u.suspensionReason!.isNotEmpty) ...[
+                              const SizedBox(height: 14),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorRed.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.25)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded,
+                                        size: 18, color: AppTheme.errorRed),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Violation Reason:',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.errorRed,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            u.suspensionReason!,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF7F1D1D),
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    onPressed: () async {
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (u.suspendedAt != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                'Suspended on: ${u.suspendedAt!.toLocal().toString().substring(0, 16)}',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                              ),
+                            ],
+                            const SizedBox(height: 14),
+                            // Action buttons
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.successGreen,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  ),
+                                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                                  label: const Text('Activate Account'),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                        title: const Text('Activate Account?'),
+                                        content: Text(
+                                          'Are you sure you want to reactivate ${u.name}\'s account? Their suspension record will be cleared.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.successGreen),
+                                            onPressed: () => Navigator.pop(ctx, true),
+                                            child: const Text('Activate', style: TextStyle(color: Colors.white)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
                                       await _authService.reactivateAccount(u.uid);
                                       setState(() {});
                                       if (!mounted) return;
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('${u.name}\'s account reactivated!')),
+                                        SnackBar(
+                                          content: Text('${u.name}\'s account has been reactivated.'),
+                                          backgroundColor: AppTheme.successGreen,
+                                        ),
                                       );
-                                    },
-                                    child: const Text('Reactivate', style: TextStyle(color: Colors.white)),
-                                  ),
-                                ],
+                                    }
+                                  },
+                                ),
                               ],
                             ),
                           ],
@@ -1068,6 +1379,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Small info chip helper
+  Widget _buildChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }
@@ -1373,6 +1699,143 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 Navigator.pop(ctx);
               },
               child: const Text('Save Lesson'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSuspendUserDialog(String uid, String userName) {
+    const tcReasons = [
+      'Unauthorized sharing of account credentials with another user.',
+      'Attempting to screen-record or extract protected course materials.',
+      'Multi-device concurrent login in violation of single-device policy.',
+      'Unauthorized redistribution or uploading of platform content.',
+      'Abusive or inappropriate behavior reported by other users.',
+      'Payment fraud or chargebacks detected.',
+      'Violation of academic integrity policies.',
+    ];
+    String selectedReason = tcReasons.first;
+    final customCtrl = TextEditingController();
+    bool useCustom = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.errorRed.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.gavel, color: AppTheme.errorRed, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Suspend $userName',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This action will immediately lock the student\'s account. They will see the suspension reason.',
+                          style: TextStyle(fontSize: 12, color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Select Violation:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Write custom reason', style: TextStyle(fontSize: 13)),
+                  value: useCustom,
+                  onChanged: (v) => setDialogState(() => useCustom = v),
+                ),
+                if (useCustom)
+                  TextField(
+                    controller: customCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Describe the specific Terms & Conditions violation...',
+                      border: OutlineInputBorder(),
+                    ),
+                  )
+                else
+                  ...tcReasons.map((reason) => RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        value: reason,
+                        groupValue: selectedReason,
+                        activeColor: AppTheme.errorRed,
+                        title: Text(reason, style: const TextStyle(fontSize: 12)),
+                        onChanged: (v) {
+                          if (v != null) setDialogState(() => selectedReason = v);
+                        },
+                      )),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.errorRed,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.block, size: 16),
+              label: const Text('Suspend Account'),
+              onPressed: () async {
+                final reason = useCustom
+                    ? customCtrl.text.trim()
+                    : selectedReason;
+                if (reason.isEmpty) return;
+                await _authService.suspendUser(uid, reason: reason);
+                setState(() {});
+                Navigator.pop(ctx);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$userName\'s account has been suspended.'),
+                    backgroundColor: AppTheme.errorRed,
+                  ),
+                );
+                // Navigate to Suspended tab to review
+                _tabController.animateTo(6);
+              },
             ),
           ],
         ),

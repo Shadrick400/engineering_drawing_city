@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import 'package:engineering_drawing_city/firebase/firebase_options.dart';
+import 'package:engineering_drawing_city/firebase_options.dart';
 import 'package:engineering_drawing_city/models/course_model.dart';
 import 'package:engineering_drawing_city/models/video_model.dart';
 import 'package:engineering_drawing_city/screens/admin/admin_login_screen.dart';

@@ -51,6 +51,83 @@ class AuthService {
     _usersDb[admin.email.toLowerCase()] = admin;
     _passwordsDb[admin.email.toLowerCase()] = _adminPassword;
 
+    // Seed student accounts with varying states including Terms & Conditions violations
+    final student1 = UserModel(
+      uid: 'student_01',
+      email: 'mwila.chanda@cbu.ac.zm',
+      name: 'Mwila Chanda',
+      role: 'student',
+      year: 'Year 2',
+      program: 'Mechanical Engineering',
+      institution: 'The Copperbelt University',
+      phoneNumber: '+260 971 234567',
+      deviceId: 'device_cbu_01',
+      isSuspended: false,
+      createdAt: DateTime.now().subtract(const Duration(days: 45)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 10)),
+    );
+    _usersDb[student1.uid] = student1;
+    _usersDb[student1.email.toLowerCase()] = student1;
+    _passwordsDb[student1.email.toLowerCase()] = 'student123';
+
+    final student2 = UserModel(
+      uid: 'student_02',
+      email: 'kondwani.banda@unza.zm',
+      name: 'Kondwani Banda',
+      role: 'student',
+      year: 'Year 3',
+      program: 'Civil Engineering',
+      institution: 'University of Zambia (UNZA)',
+      phoneNumber: '+260 962 345678',
+      deviceId: 'device_unza_02',
+      isSuspended: true,
+      suspensionReason: 'Terms & Conditions Violation: Unauthorized multi-device concurrent streaming detected (Section 4.1).',
+      suspendedAt: DateTime.now().subtract(const Duration(days: 2)),
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+    );
+    _usersDb[student2.uid] = student2;
+    _usersDb[student2.email.toLowerCase()] = student2;
+    _passwordsDb[student2.email.toLowerCase()] = 'student123';
+
+    final student3 = UserModel(
+      uid: 'student_03',
+      email: 'chileshe.phiri@ehc.edu.zm',
+      name: 'Chileshe Phiri',
+      role: 'student',
+      year: 'Year 1',
+      program: 'Electrical & Electronics',
+      institution: 'Evelyn Hone College',
+      phoneNumber: '+260 771 890123',
+      deviceId: 'device_ehc_03',
+      isSuspended: true,
+      suspensionReason: 'Terms & Conditions Violation: Attempted screen-recording & unauthorized file extraction of technical drawing materials.',
+      suspendedAt: DateTime.now().subtract(const Duration(hours: 18)),
+      createdAt: DateTime.now().subtract(const Duration(days: 14)),
+      updatedAt: DateTime.now().subtract(const Duration(hours: 18)),
+    );
+    _usersDb[student3.uid] = student3;
+    _usersDb[student3.email.toLowerCase()] = student3;
+    _passwordsDb[student3.email.toLowerCase()] = 'student123';
+
+    final student4 = UserModel(
+      uid: 'student_04',
+      email: 'natasha.tembo@mu.ac.zm',
+      name: 'Natasha Tembo',
+      role: 'student',
+      year: 'Year 2',
+      program: 'Geomatic Engineering',
+      institution: 'Mulungushi University',
+      phoneNumber: '+260 955 456789',
+      deviceId: 'device_mu_04',
+      isSuspended: false,
+      createdAt: DateTime.now().subtract(const Duration(days: 20)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 5)),
+    );
+    _usersDb[student4.uid] = student4;
+    _usersDb[student4.email.toLowerCase()] = student4;
+    _passwordsDb[student4.email.toLowerCase()] = 'student123';
+
     // No auto-login — users must sign in explicitly
     _currentUser = null;
     _userStreamController.add(null);
@@ -109,18 +186,24 @@ class AuthService {
           if (existing.deviceId != null &&
               existing.deviceId!.isNotEmpty &&
               existing.deviceId != currentDeviceId) {
-            // Suspend account – device changed
-            final suspended = existing.copyWith(isSuspended: true);
+            // Suspend account – device changed / terms violation
+            final suspended = existing.copyWith(
+              isSuspended: true,
+              suspensionReason: 'Terms & Conditions Violation: Login detected from a new/unauthorized device without prior reset approval.',
+              suspendedAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
             _usersDb[suspended.uid] = suspended;
             _usersDb[cleanEmail] = suspended;
             throw Exception(
-                'ACCOUNT_SUSPENDED: This account has been suspended because a login was detected from a new device. '
-                'Please contact customer care at +260 772 184445 for reactivation.');
+                'ACCOUNT_SUSPENDED: This account has been suspended because a login was detected from an unrecognized device in violation of single-device terms. '
+                'Please contact administrator or support at +260 772 184445 for reactivation.');
           }
           if (existing.isSuspended) {
+            final reason = existing.suspensionReason ?? 'Violation of Terms and Conditions';
             throw Exception(
-                'ACCOUNT_SUSPENDED: Your account is suspended. '
-                'Please contact customer care at +260 772 184445 for reactivation.');
+                'ACCOUNT_SUSPENDED: Your account is currently suspended.\nReason: $reason\n'
+                'Please contact administrator at +260 772 184445 to request account reactivation.');
           }
           _currentUser = existing;
         } else {
@@ -154,7 +237,12 @@ class AuthService {
         if (user.deviceId != null &&
             user.deviceId!.isNotEmpty &&
             user.deviceId != currentDeviceId) {
-          final suspended = user.copyWith(isSuspended: true);
+          final suspended = user.copyWith(
+            isSuspended: true,
+            suspensionReason: 'Terms & Conditions Violation: Login detected from an unrecognized device in violation of single-device policy.',
+            suspendedAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
           _usersDb[suspended.uid] = suspended;
           _usersDb[cleanEmail] = suspended;
           throw Exception(
@@ -162,9 +250,10 @@ class AuthService {
               'Please contact customer care at +260 772 184445 for reactivation.');
         }
         if (user.isSuspended) {
+          final reason = user.suspensionReason ?? 'Violation of Terms and Conditions';
           throw Exception(
-              'ACCOUNT_SUSPENDED: Your account is suspended. '
-              'Please contact customer care at +260 772 184445 for reactivation.');
+              'ACCOUNT_SUSPENDED: Your account is currently suspended.\nReason: $reason\n'
+              'Please contact administrator at +260 772 184445 for reactivation.');
         }
 
         _currentUser = user;
@@ -254,17 +343,44 @@ class AuthService {
     return userModel;
   }
 
-  /// Reactivate a suspended account (admin action)
+  /// Reactivate / Activate a suspended account (admin action)
   Future<void> reactivateAccount(String uid) async {
     final user = _usersDb[uid];
     if (user != null) {
       final reactivated = user.copyWith(
         isSuspended: false,
+        clearSuspensionReason: true,
         deviceId: _getDeviceId(),
         updatedAt: DateTime.now(),
       );
       _usersDb[uid] = reactivated;
       _usersDb[reactivated.email.toLowerCase()] = reactivated;
+      if (_currentUser?.uid == uid) {
+        _currentUser = reactivated;
+      }
+      _userStreamController.add(_currentUser);
+    }
+  }
+
+  /// Activate suspended user (alias for reactivateAccount)
+  Future<void> activateUser(String uid) => reactivateAccount(uid);
+
+  /// Suspend a user account for Terms & Conditions breach (admin action)
+  Future<void> suspendUser(String uid, {required String reason}) async {
+    final user = _usersDb[uid];
+    if (user != null) {
+      final suspended = user.copyWith(
+        isSuspended: true,
+        suspensionReason: reason,
+        suspendedAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      _usersDb[uid] = suspended;
+      _usersDb[suspended.email.toLowerCase()] = suspended;
+      if (_currentUser?.uid == uid) {
+        _currentUser = suspended;
+      }
+      _userStreamController.add(_currentUser);
     }
   }
 

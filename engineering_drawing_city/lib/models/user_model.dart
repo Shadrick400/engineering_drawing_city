@@ -9,7 +9,9 @@ class UserModel {
   final String? institution;  // e.g. "The Copperbelt University"
   final String? phoneNumber;  // mobile money / contact number
   final String? deviceId;     // registered device fingerprint (for device-lock)
-  final bool isSuspended;     // true when device change detected
+  final bool isSuspended;     // true when device change or terms violation detected
+  final String? suspensionReason; // details of the violation (e.g. Terms & Conditions breach)
+  final DateTime? suspendedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -25,6 +27,8 @@ class UserModel {
     this.phoneNumber,
     this.deviceId,
     this.isSuspended = false,
+    this.suspensionReason,
+    this.suspendedAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -42,6 +46,10 @@ class UserModel {
       phoneNumber: data['phoneNumber'],
       deviceId: data['deviceId'],
       isSuspended: data['isSuspended'] ?? false,
+      suspensionReason: data['suspensionReason'],
+      suspendedAt: data['suspendedAt'] != null
+          ? DateTime.parse(data['suspendedAt'])
+          : null,
       createdAt: data['createdAt'] != null
           ? DateTime.parse(data['createdAt'])
           : null,
@@ -63,6 +71,8 @@ class UserModel {
       'phoneNumber': phoneNumber,
       'deviceId': deviceId,
       'isSuspended': isSuspended,
+      'suspensionReason': suspensionReason,
+      'suspendedAt': suspendedAt?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -80,8 +90,11 @@ class UserModel {
     String? phoneNumber,
     String? deviceId,
     bool? isSuspended,
+    String? suspensionReason,
+    DateTime? suspendedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool clearSuspensionReason = false,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -95,6 +108,8 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       deviceId: deviceId ?? this.deviceId,
       isSuspended: isSuspended ?? this.isSuspended,
+      suspensionReason: clearSuspensionReason ? null : (suspensionReason ?? this.suspensionReason),
+      suspendedAt: clearSuspensionReason ? null : (suspendedAt ?? this.suspendedAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
