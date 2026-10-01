@@ -1,16 +1,18 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class UserModel {
   final String uid;
   final String email;
   final String name;
-  final String role; // 'student' or 'admin'
+  final String role;
   final String? photoUrl;
-  final String? year;         // e.g. "Year 1", "Year 2", etc.
-  final String? program;      // e.g. "Civil Engineering"
-  final String? institution;  // e.g. "The Copperbelt University"
-  final String? phoneNumber;  // mobile money / contact number
-  final String? deviceId;     // registered device fingerprint (for device-lock)
-  final bool isSuspended;     // true when device change or terms violation detected
-  final String? suspensionReason; // details of the violation (e.g. Terms & Conditions breach)
+  final String? year;
+  final String? program;
+  final String? institution;
+  final String? phoneNumber;
+  final String? deviceId;
+  final bool isSuspended;
+  final String? suspensionReason;
   final DateTime? suspendedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -33,32 +35,47 @@ class UserModel {
     this.updatedAt,
   });
 
+  /// Converts Firestore timestamps or normal DateTime/string values to DateTime.
+  static DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+
+    return null;
+  }
+
+  /// Creates a UserModel from a Firestore document.
   factory UserModel.fromMap(String uid, Map<String, dynamic> data) {
     return UserModel(
       uid: uid,
-      email: data['email'] ?? '',
-      name: data['name'] ?? '',
-      role: data['role'] ?? 'student',
-      photoUrl: data['photoUrl'],
-      year: data['year'],
-      program: data['program'],
-      institution: data['institution'],
-      phoneNumber: data['phoneNumber'],
-      deviceId: data['deviceId'],
-      isSuspended: data['isSuspended'] ?? false,
-      suspensionReason: data['suspensionReason'],
-      suspendedAt: data['suspendedAt'] != null
-          ? DateTime.parse(data['suspendedAt'])
-          : null,
-      createdAt: data['createdAt'] != null
-          ? DateTime.parse(data['createdAt'])
-          : null,
-      updatedAt: data['updatedAt'] != null
-          ? DateTime.parse(data['updatedAt'])
-          : null,
+      email: data['email'] as String? ?? '',
+      name: data['name'] as String? ?? '',
+      role: data['role'] as String? ?? 'student',
+      photoUrl: data['photoUrl'] as String?,
+      year: data['year'] as String?,
+      program: data['program'] as String?,
+      institution: data['institution'] as String?,
+      phoneNumber: data['phoneNumber'] as String?,
+      deviceId: data['deviceId'] as String?,
+      isSuspended: data['isSuspended'] as bool? ?? false,
+      suspensionReason: data['suspensionReason'] as String?,
+      suspendedAt: _parseDate(data['suspendedAt']),
+      createdAt: _parseDate(data['createdAt']),
+      updatedAt: _parseDate(data['updatedAt']),
     );
   }
 
+  /// Converts the user to a Firestore-compatible map.
   Map<String, dynamic> toMap() {
     return {
       'email': email,
@@ -72,9 +89,9 @@ class UserModel {
       'deviceId': deviceId,
       'isSuspended': isSuspended,
       'suspensionReason': suspensionReason,
-      'suspendedAt': suspendedAt?.toIso8601String(),
-      'createdAt': createdAt?.toIso8601String(),
-      'updatedAt': updatedAt?.toIso8601String(),
+      'suspendedAt': suspendedAt,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
   }
 
@@ -108,8 +125,12 @@ class UserModel {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       deviceId: deviceId ?? this.deviceId,
       isSuspended: isSuspended ?? this.isSuspended,
-      suspensionReason: clearSuspensionReason ? null : (suspensionReason ?? this.suspensionReason),
-      suspendedAt: clearSuspensionReason ? null : (suspendedAt ?? this.suspendedAt),
+      suspensionReason: clearSuspensionReason
+          ? null
+          : (suspensionReason ?? this.suspensionReason),
+      suspendedAt: clearSuspensionReason
+          ? null
+          : (suspendedAt ?? this.suspendedAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

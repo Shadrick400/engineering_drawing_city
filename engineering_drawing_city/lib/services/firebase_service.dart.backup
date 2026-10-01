@@ -149,344 +149,199 @@ class AuthService {
     return 'device_${DateTime.now().day}_${DateTime.now().month}';
   }
 
+  Future<UserModel> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanPassword = password.trim();
 
-Future<UserModel> signInWithEmailPassword({
-  required String email,
-  required String password,
-}) async {
-  final cleanEmail = email.trim().toLowerCase();
-  final cleanPassword = password.trim();
+    // 1. Check real admin credentials first (no network needed)
+    if (cleanEmail == _adminEmail.toLowerCase() && cleanPassword == _adminPassword) {
+      final admin = _usersDb[cleanEmail] ?? UserModel(
+        uid: 'admin_01',
+        email: cleanEmail,
+        name: 'EDC Administrator',
+        role: 'admin',
+        createdAt: DateTime.now(),
+      );
+      _usersDb[admin.uid] = admin;
+      _usersDb[cleanEmail] = admin;
+      _currentUser = admin;
+      _userStreamController.add(_currentUser);
+      return admin;
+    }
 
-  // Temporary admin login compatibility.
-  if (cleanEmail == _adminEmail.toLowerCase() &&
-      cleanPassword == _adminPassword) {
-    final admin = _usersDb[cleanEmail] ??
-        UserModel(
-          uid: 'admin_01',
+    // 2. Try Firebase Auth for real registered users
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: cleanPassword,
+      );
+      if (cred.user != null) {
+        final existing = _usersDb[cred.user!.uid];
+        if (existing != null) {
+          // Device lock check
+          final currentDeviceId = _getDeviceId();
+          if (existing.deviceId != null &&
+              existing.deviceId!.isNotEmpty &&
+              existing.deviceId != currentDeviceId) {
+            // Suspend account – device changed / terms violation
+            final suspended = existing.copyWith(
+              isSuspended: true,
+              suspensionReason: 'Terms & Conditions Violation: Login detected from a new/unauthorized device without prior reset approval.',
+              suspendedAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+            _usersDb[suspended.uid] = suspended;
+            _usersDb[cleanEmail] = suspended;
+            throw Exception(
+                'ACCOUNT_SUSPENDED: This account has been suspended because a login was detected from an unrecognized device in violation of single-device terms. '
+                'Please contact administrator or support at +260 772 184445 for reactivation.');
+          }
+          if (existing.isSuspended) {
+            final reason = existing.suspensionReason ?? 'Violation of Terms and Conditions';
+            throw Exception(
+                'ACCOUNT_SUSPENDED: Your account is currently suspended.\nReason: $reason\n'
+                'Please contact administrator at +260 772 184445 to request account reactivation.');
+          }
+          _currentUser = existing;
+        } else {
+          _currentUser = UserModel(
+            uid: cred.user!.uid,
+            email: cred.user!.email ?? cleanEmail,
+            name: cred.user!.displayName ?? cleanEmail.split('@').first,
+            role: 'student',
+            deviceId: _getDeviceId(),
+            createdAt: DateTime.now(),
+          );
+          _usersDb[_currentUser!.uid] = _currentUser!;
+          _usersDb[cleanEmail] = _currentUser!;
+        }
+        _userStreamController.add(_currentUser);
+        return _currentUser!;
+      }
+    } catch (e) {
+      if (e.toString().contains('ACCOUNT_SUSPENDED')) rethrow;
+      debugPrint('Firebase Auth signIn fallback to local store: $e');
+    }
+
+    // 3. Check local registered users (with password match if stored)
+    if (_usersDb.containsKey(cleanEmail)) {
+      final storedPassword = _passwordsDb[cleanEmail];
+      if (storedPassword == null || storedPassword == cleanPassword) {
+        final user = _usersDb[cleanEmail]!;
+
+        // Device lock check for local users
+        final currentDeviceId = _getDeviceId();
+        if (user.deviceId != null &&
+            user.deviceId!.isNotEmpty &&
+            user.deviceId != currentDeviceId) {
+          final suspended = user.copyWith(
+            isSuspended: true,
+            suspensionReason: 'Terms & Conditions Violation: Login detected from an unrecognized device in violation of single-device policy.',
+            suspendedAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          _usersDb[suspended.uid] = suspended;
+          _usersDb[cleanEmail] = suspended;
+          throw Exception(
+              'ACCOUNT_SUSPENDED: This account has been suspended because a login was detected from a new device. '
+              'Please contact customer care at +260 772 184445 for reactivation.');
+        }
+        if (user.isSuspended) {
+          final reason = user.suspensionReason ?? 'Violation of Terms and Conditions';
+          throw Exception(
+              'ACCOUNT_SUSPENDED: Your account is currently suspended.\nReason: $reason\n'
+              'Please contact administrator at +260 772 184445 for reactivation.');
+        }
+
+        _currentUser = user;
+        _userStreamController.add(_currentUser);
+        return user;
+      } else {
+        throw Exception('Incorrect password. Please try again.');
+      }
+    }
+
+    throw Exception('No account found for this email. Please register first.');
+  }
+
+  Future<UserModel> registerWithEmailPassword({
+    required String email,
+    required String password,
+    required String name,
+    String? year,
+    String? program,
+    String? institution,
+    String? phoneNumber,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+
+    // Prevent admin email from registering as student
+    if (cleanEmail == _adminEmail.toLowerCase()) {
+      throw Exception('This email address is reserved. Please use a different email.');
+    }
+
+    // Check if already registered
+    if (_usersDb.containsKey(cleanEmail)) {
+      throw Exception('An account already exists with this email. Please sign in.');
+    }
+
+    final deviceId = _getDeviceId();
+
+    try {
+      final cred = await _auth.createUserWithEmailAndPassword(
+        email: email.trim(),
+        password: password.trim(),
+      );
+      if (cred.user != null) {
+        final userModel = UserModel(
+          uid: cred.user!.uid,
           email: cleanEmail,
-          name: 'EDC Administrator',
-          role: 'admin',
+          name: name,
+          role: 'student',
+          year: year,
+          program: program,
+          institution: institution,
+          phoneNumber: phoneNumber,
+          deviceId: deviceId,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-
-    _usersDb[admin.uid] = admin;
-    _usersDb[cleanEmail] = admin;
-
-    _currentUser = admin;
-    _userStreamController.add(_currentUser);
-
-    return admin;
-  }
-
-  try {
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: cleanEmail,
-      password: cleanPassword,
-    );
-
-    final firebaseUser = credential.user;
-
-    if (firebaseUser == null) {
-      throw Exception(
-        'Unable to sign in. Please try again.',
-      );
+        _usersDb[userModel.uid] = userModel;
+        _usersDb[cleanEmail] = userModel;
+        _passwordsDb[cleanEmail] = password;
+        _currentUser = userModel;
+        _userStreamController.add(_currentUser);
+        return userModel;
+      }
+    } catch (e) {
+      debugPrint('Firebase Auth register fallback to local store: $e');
     }
 
-    final userDocument = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .get();
-
-    UserModel user;
-
-    if (userDocument.exists && userDocument.data() != null) {
-      user = UserModel.fromMap(
-        firebaseUser.uid,
-        userDocument.data()!,
-      );
-    } else {
-      user = UserModel(
-        uid: firebaseUser.uid,
-        email: firebaseUser.email ?? cleanEmail,
-        name: firebaseUser.displayName ??
-            cleanEmail.split('@').first,
-        role: 'student',
-        deviceId: _getDeviceId(),
-        isSuspended: false,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(firebaseUser.uid)
-          .set(user.toMap());
-    }
-
-    if (user.isSuspended) {
-      final reason =
-          user.suspensionReason ?? 'Violation of Terms and Conditions';
-
-      await _auth.signOut();
-
-      throw Exception(
-        'ACCOUNT_SUSPENDED: Your account is currently suspended.\n'
-        'Reason: $reason\n'
-        'Please contact administrator for reactivation.',
-      );
-    }
-
-    final currentDeviceId = _getDeviceId();
-
-    if (user.deviceId != null &&
-        user.deviceId!.isNotEmpty &&
-        user.deviceId != currentDeviceId) {
-      final suspendedUser = user.copyWith(
-        isSuspended: true,
-        suspensionReason:
-            'Terms & Conditions Violation: Login detected from an unrecognized device.',
-        suspendedAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .set(suspendedUser.toMap());
-
-      await _auth.signOut();
-
-      throw Exception(
-        'ACCOUNT_SUSPENDED: This account has been suspended '
-        'because a login was detected from an unrecognized device.',
-      );
-    }
-
-    _currentUser = user;
-
-    _usersDb[user.uid] = user;
-    _usersDb[cleanEmail] = user;
-
-    _userStreamController.add(_currentUser);
-
-    return user;
-  } on FirebaseAuthException catch (e) {
-    if (e.code == 'user-not-found') {
-      throw Exception(
-        'No account found for this email. Please register first.',
-      );
-    }
-
-    if (e.code == 'wrong-password' ||
-        e.code == 'invalid-credential') {
-      throw Exception(
-        'Incorrect email or password. Please try again.',
-      );
-    }
-
-    if (e.code == 'invalid-email') {
-      throw Exception(
-        'Please enter a valid email address.',
-      );
-    }
-
-    if (e.code == 'user-disabled') {
-      throw Exception(
-        'This Firebase account has been disabled.',
-      );
-    }
-
-    if (e.code == 'network-request-failed') {
-      throw Exception(
-        'Network error. Please check your internet connection and try again.',
-      );
-    }
-
-    throw Exception(
-      e.message ?? 'Unable to sign in. Please try again.',
-    );
-  }
-}
-
-
-  /// Send Firebase's real password reset email.
-Future<void> sendPasswordResetEmail(String email) async {
-  final cleanEmail = email.trim().toLowerCase();
-
-  if (cleanEmail.isEmpty) {
-    throw Exception('Please enter your email address.');
-  }
-
-  try {
-    await _auth.sendPasswordResetEmail(
-      email: cleanEmail,
-    );
-  } on FirebaseAuthException catch (e) {
-    switch (e.code) {
-      case 'invalid-email':
-        throw Exception('Please enter a valid email address.');
-
-      case 'user-not-found':
-        throw Exception(
-          'No account was found with this email address.',
-        );
-
-      default:
-        throw Exception(
-          e.message ?? 'Unable to send the password reset email.',
-        );
-    }
-  }
-}
-
-  Future<UserModel> registerWithEmailPassword({
-  required String email,
-  required String password,
-  required String name,
-  String? year,
-  String? program,
-  String? institution,
-  String? phoneNumber,
-}) async {
-  final cleanEmail = email.trim().toLowerCase();
-  final cleanName = name.trim();
-  final cleanPassword = password.trim();
-
-  // Prevent the administrator email from being registered as a student.
-  if (cleanEmail == _adminEmail.toLowerCase()) {
-    throw Exception(
-      'This email address is reserved. Please use a different email.',
-    );
-  }
-
-  UserCredential? credential;
-
-  try {
-    // ============================================================
-    // 1. CREATE ACCOUNT IN FIREBASE AUTHENTICATION
-    // ============================================================
-    credential = await _auth.createUserWithEmailAndPassword(
-      email: cleanEmail,
-      password: cleanPassword,
-    );
-
-    final firebaseUser = credential.user;
-
-    if (firebaseUser == null) {
-      throw Exception(
-        'Firebase could not create the account. Please try again.',
-      );
-    }
-
-    // ============================================================
-    // 2. CREATE THE USER PROFILE
-    // ============================================================
     final userModel = UserModel(
-      uid: firebaseUser.uid,
+      uid: 'user_${DateTime.now().millisecondsSinceEpoch}',
       email: cleanEmail,
-      name: cleanName,
+      name: name,
       role: 'student',
       year: year,
       program: program,
       institution: institution,
       phoneNumber: phoneNumber,
-      deviceId: _getDeviceId(),
-      isSuspended: false,
+      deviceId: deviceId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
-    // ============================================================
-    // 3. SAVE USER PROFILE TO FIRESTORE
-    // ============================================================
-    await FirebaseFirestore.instance
-    .collection('users')
-    .doc(firebaseUser.uid)
-    .set(userModel.toMap());
-
-    // ============================================================
-    // 4. UPDATE CURRENT APP USER
-    // ============================================================
-    _currentUser = userModel;
-
-    // Keep the local cache updated.
     _usersDb[userModel.uid] = userModel;
     _usersDb[cleanEmail] = userModel;
-
-    // IMPORTANT:
-    // Do NOT store the Firebase password in _passwordsDb.
-    // Firebase Authentication securely manages the password.
-    _passwordsDb.remove(cleanEmail);
-
-    // Notify the rest of the application.
+    _passwordsDb[cleanEmail] = password;
+    _currentUser = userModel;
     _userStreamController.add(_currentUser);
 
     return userModel;
-  } on FirebaseAuthException catch (e) {
-    // ============================================================
-    // FIREBASE AUTHENTICATION ERRORS
-    // ============================================================
-
-    if (e.code == 'email-already-in-use') {
-      throw Exception(
-        'An account already exists with this email. Please sign in.',
-      );
-    }
-
-    if (e.code == 'weak-password') {
-      throw Exception(
-        'The password is too weak. Please use a stronger password.',
-      );
-    }
-
-    if (e.code == 'invalid-email') {
-      throw Exception(
-        'Please enter a valid email address.',
-      );
-    }
-
-    if (e.code == 'operation-not-allowed') {
-      throw Exception(
-        'Email and password registration is not enabled in Firebase.',
-      );
-    }
-
-    if (e.code == 'network-request-failed') {
-      throw Exception(
-        'Network error. Please check your internet connection and try again.',
-      );
-    }
-
-    throw Exception(
-      e.message ?? 'Unable to create your account. Please try again.',
-    );
-  } catch (e) {
-    // ============================================================
-    // FIRESTORE ERROR / OTHER ERROR
-    // ============================================================
-
-    // Firebase Authentication may have successfully created the
-    // account while Firestore failed to save the profile.
-    //
-    // Remove the Firebase account so we don't leave an incomplete
-    // account behind.
-    if (credential?.user != null) {
-      try {
-        await credential!.user!.delete();
-      } catch (_) {
-        // Ignore cleanup failure.
-      }
-    }
-
-    debugPrint('Registration error: $e');
-
-    throw Exception(
-      'Account creation failed. Please check your internet connection and try again.',
-    );
   }
-}
-        
 
   /// Reactivate / Activate a suspended account (admin action)
   Future<void> reactivateAccount(String uid) async {
